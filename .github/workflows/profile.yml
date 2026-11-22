@@ -1,0 +1,37 @@
+name: Refresh profile graphics
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 2 * * *"
+  push:
+    paths:
+      - ".github/workflows/profile.yml"
+      - ".github/scripts/profile.py"
+permissions:
+  contents: write
+concurrency:
+  group: profile-graphics
+  cancel-in-progress: false
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Render public repository statistics
+        run: python .github/scripts/profile.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          USERNAME: ${{ github.repository_owner }}
+      - uses: yoshi389111/github-profile-3d-contrib@latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          USERNAME: ${{ github.repository_owner }}
+      - name: Save generated graphics
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/radar.svg assets/numbers.svg profile-3d-contrib/
+          if ! git diff --cached --quiet; then
+            git commit -m "Refresh profile graphics"
+            git push
+          fi
