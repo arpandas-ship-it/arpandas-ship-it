@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/arpan-reveal.svg" width="240" alt="Portrait of Arpan Das">
+  <img src="./assets/portrait-loop.webp" width="240" alt="Portrait of Arpan Das">
 </p>
 
 <p align="center">
