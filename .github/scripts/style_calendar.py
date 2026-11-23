@@ -38,6 +38,7 @@ def style_calendar(path):
     slope = math.tan(math.radians(30))
     ground = ET.Element(f"{{{SVG}}}g", id="calendar-ground", attrib={"aria-hidden": "true"})
     tiles.insert(0, ground)
+    cells = []
     for tile in tiles.findall(f"{{{SVG}}}g"):
         top = tile.find(f"{{{SVG}}}rect")
         if top is None or not top.get("class", "").startswith("cont-top-"):
@@ -59,13 +60,37 @@ def style_calendar(path):
                 height = f"{initial + rise / 1.15:.2f}"
                 side.set("height", height)
                 pulse(animation, f"{initial + rise * 0.4 / 1.15:.3f}", height)
-        # The generator emits one tile per real date, including zero days.
-        # Use that exact footprint so a partial week ends on its latest day.
-        ET.SubElement(ground, f"{{{SVG}}}polygon", fill=PALETTE[0][0],
-                      points=f"{x},{ground_y} {x+18},{ground_y-18*slope} "
-                             f"{x+36},{ground_y} {x+18},{ground_y+18*slope}")
-    if not len(ground):
+        week = (x + ground_y / slope) / 2
+        weekday = (x - ground_y / slope) / 2
+        cells.append((week, weekday, tile, motion is not None))
+    if not cells:
         raise ValueError("No calendar dates found")
+
+    # Round away the upstream SVG's subpixel projection noise.
+    first = min(w for w, _, _, _ in cells)
+    low = min(d for _, d, _, _ in cells)
+    last = max((w for w, _, _, active in cells if active), default=max(w for w, _, _, _ in cells))
+    columns = round((last - first) / 20) + 1
+    rows = round((max(d for _, d, _, _ in cells) - low) / 20) + 1
+    for week, _, tile, _ in cells:
+        if round((week - first) / 20) >= columns:
+            tiles.remove(tile)
+
+    def point(u, v, drop=0):
+        return f"{u+v:.2f},{(u-v)*slope+drop:.2f}"
+
+    def polygon(points, color):
+        ET.SubElement(ground, f"{{{SVG}}}polygon", fill=color, points=" ".join(points))
+
+    # A continuous rim meets the outer faces of the last week's blocks.
+    end, high = first + columns * 20 - 2, low + rows * 20 - 2
+    polygon([point(first, low), point(end, low), point(end, high), point(first, high)], "#74847b")
+    polygon([point(end, low), point(end, high), point(end, high, 3), point(end, low, 3)], "#62736a")
+    polygon([point(first, low), point(end, low), point(end, low, 3), point(first, low, 3)], "#89958e")
+    for col in range(columns):
+        for row in range(rows):
+            u, v = first + col * 20, low + row * 20
+            polygon([point(u, v), point(u+18, v), point(u+18, v+18), point(u, v+18)], PALETTE[0][0])
     tiles.set("transform", "translate(50 18) scale(0.89)")
     tree.write(Path("assets/contribution-calendar-animated.svg"), encoding="utf-8")
 
