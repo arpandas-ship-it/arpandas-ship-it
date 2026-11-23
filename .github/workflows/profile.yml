@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/workflows/profile.yml"
       - ".github/scripts/profile.py"
+      - ".github/scripts/style_calendar.py"
 permissions:
   contents: write
 concurrency:
@@ -26,6 +27,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           USERNAME: ${{ github.repository_owner }}
+      - name: Style the contribution calendar
+        run: python .github/scripts/style_calendar.py
       - name: Save generated graphics
         run: |
           git config user.name "github-actions[bot]"
