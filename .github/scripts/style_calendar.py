@@ -8,11 +8,11 @@ SVG = "http://www.w3.org/2000/svg"
 ET.register_namespace("", SVG)
 PATH = Path("profile-3d-contrib/profile-night-green.svg")
 PALETTE = [
-    ("#c8d1cb", "#aab6ae", "#96a59b"),
-    ("#abcbb0", "#86ab8c", "#719979"),
-    ("#79ad86", "#568e64", "#467b53"),
-    ("#49885c", "#337146", "#295c39"),
-    ("#2f6c47", "#235738", "#19462c"),
+    ("#a9b4ae", "#89958e", "#74847b"),
+    ("#9bd5a9", "#69a67c", "#45845c"),
+    ("#76c58e", "#4b9c69", "#327e51"),
+    ("#58b578", "#348c58", "#216e41"),
+    ("#3da662", "#287e47", "#185e32"),
 ]
 
 
@@ -28,8 +28,7 @@ def style_calendar(path):
                 raise ValueError(f"Missing calendar color for {face} {level}")
 
     tiles = root.find(f"{{{SVG}}}g")
-    # Work in the calendar's two diagonal axes. Include the whole top face,
-    # its ground position, and the sides, even during the rise animation.
+    # A raised column shares the footprint of its ground tile.
     slope = math.tan(math.radians(30))
     projected = []
     for tile in tiles.findall(f"{{{SVG}}}g"):
@@ -39,22 +38,34 @@ def style_calendar(path):
         x, y = map(float, tile.attrib["transform"][10:-1].split())
         motion = tile.find(f"{{{SVG}}}animateTransform")
         ground_y = float(motion.attrib["values"].split(";")[0].split()[1]) if motion is not None else y
-        for height in (y, ground_y, ground_y + 3):
-            u, v = (x + height / slope) / 2, (x - height / slope) / 2
-            projected.extend(((u, v), (u + 18, v + 18)))
+        if motion is not None:
+            level = int(top.attrib["class"].split("-")[-1])
+            rise = (0, 5, 10, 16, 22)[level]
+            start = motion.attrib["values"].split(";")[0]
+            end = f"{x:g} {ground_y - rise:.2f}"
+            tile.set("transform", f"translate({end})")
+            motion.set("values", f"{start};{end}")
+            for side in tile.findall(f"{{{SVG}}}rect")[1:]:
+                animation = side.find(f"{{{SVG}}}animate")
+                initial = float(animation.attrib["values"].split(";")[0])
+                height = f"{initial + rise / 1.15:.2f}"
+                side.set("height", height)
+                animation.set("values", f"{initial:g};{height}")
+        u, v = (x + ground_y / slope) / 2, (x - ground_y / slope) / 2
+        projected.extend(((u, v), (u + 18, v + 18)))
     if not projected:
         raise ValueError("No calendar tiles found")
     u, v = zip(*projected)
-    left, right = min(u) - 7, max(u) + 7
-    back, front = min(v) - 7, max(v) + 7
+    left, right = min(u) - 3, max(u) + 3
+    back, front = min(v) - 3, max(v) + 3
     corners = [(left, back), (right, back), (right, front), (left, front)]
-    points = " ".join(f"{a+b:.2f},{(a-b)*slope:.2f}" for a, b in corners)
+    points = " ".join(f"{a+b:.2f},{(a-b)*slope+3:.2f}" for a, b in corners)
     base = tiles.find(f"{{{SVG}}}polygon[@id='calendar-base']")
     if base is None:
         base = ET.Element(f"{{{SVG}}}polygon", id="calendar-base")
         tiles.insert(0, base)
     base.set("points", points)
-    base.set("fill", "#a9b6ae")
+    base.set("fill", "#62726a")
     tree.write(path, encoding="utf-8")
 
 
