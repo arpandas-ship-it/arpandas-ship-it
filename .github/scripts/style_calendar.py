@@ -30,7 +30,7 @@ def style_calendar(path):
     tiles = root.find(f"{{{SVG}}}g")
     # A raised column shares the footprint of its ground tile.
     slope = math.tan(math.radians(30))
-    projected = []
+    footprints = []
     for tile in tiles.findall(f"{{{SVG}}}g"):
         top = tile.find(f"{{{SVG}}}rect")
         if top is None or not top.get("class", "").startswith("cont-top-"):
@@ -52,20 +52,39 @@ def style_calendar(path):
                 side.set("height", height)
                 animation.set("values", f"{initial:g};{height}")
         u, v = (x + ground_y / slope) / 2, (x - ground_y / slope) / 2
-        projected.extend(((u, v), (u + 18, v + 18)))
-    if not projected:
+        footprints.append((u, v))
+    if not footprints:
         raise ValueError("No calendar tiles found")
-    u, v = zip(*projected)
-    left, right = min(u) - 3, max(u) + 3
-    back, front = min(v) - 3, max(v) + 3
-    corners = [(left, back), (right, back), (right, front), (left, front)]
-    points = " ".join(f"{a+b:.2f},{(a-b)*slope+3:.2f}" for a, b in corners)
-    base = tiles.find(f"{{{SVG}}}polygon[@id='calendar-base']")
-    if base is None:
-        base = ET.Element(f"{{{SVG}}}polygon", id="calendar-base")
-        tiles.insert(0, base)
-    base.set("points", points)
-    base.set("fill", "#62726a")
+
+    # One full tile around the dates contains the projected tops as well as
+    # the feet of the columns. 22 vertical units project to 19.1 grid units.
+    us, vs = zip(*footprints)
+    pitch, face = 20, 18
+    u0, v0 = min(us), min(vs)
+    week_count = round((max(us) - u0) / pitch) + 1
+    day_count = round((max(vs) - v0) / pitch) + 1
+    occupied = {(round((u-u0)/pitch), round((v-v0)/pitch)) for u, v in footprints}
+
+    def diamond(u, v, width, depth):
+        corners = ((u, v), (u+width, v), (u+width, v+depth), (u, v+depth))
+        return " ".join(f"{a+b:.2f},{(a-b)*slope:.2f}" for a, b in corners)
+
+    for child in list(tiles):
+        if child.get("id") in {"calendar-base", "calendar-surround"}:
+            tiles.remove(child)
+    surround = ET.Element(f"{{{SVG}}}g", id="calendar-surround",
+                          attrib={"aria-hidden": "true", "pointer-events": "none"})
+    tiles.insert(0, surround)
+    ET.SubElement(surround, f"{{{SVG}}}polygon", id="calendar-base", fill="#65736c",
+                  points=diamond(u0-pitch-2, v0-pitch-2,
+                                 (week_count+2)*pitch+2, (day_count+2)*pitch+2))
+    # Neutral padding also fills the unused slots of the partial final week.
+    for col in range(-1, week_count + 1):
+        for row in range(-1, day_count + 1):
+            if (col, row) not in occupied:
+                ET.SubElement(surround, f"{{{SVG}}}polygon", fill="#929e97",
+                              points=diamond(u0+col*pitch, v0+row*pitch, face, face))
+    tiles.set("transform", "translate(48 16) scale(0.92)")
     tree.write(path, encoding="utf-8")
 
 
