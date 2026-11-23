@@ -16,6 +16,12 @@ PALETTE = [
 ]
 
 
+def pulse(animation, low, high):
+    animation.attrib.update(values=f"{low};{high};{high};{low};{low}", dur="6s",
+                            keyTimes="0;0.35;0.5;0.85;1", repeatCount="indefinite",
+                            calcMode="spline", keySplines=";".join(["0.45 0 0.55 1"] * 4))
+
+
 def style_calendar(path):
     tree = ET.parse(path)
     root = tree.getroot()
@@ -44,13 +50,13 @@ def style_calendar(path):
             start = motion.attrib["values"].split(";")[0]
             end = f"{x:g} {ground_y - rise:.2f}"
             tile.set("transform", f"translate({end})")
-            motion.set("values", f"{start};{end}")
+            pulse(motion, f"{x:g} {ground_y - rise * 0.4:.3f}", end)
             for side in tile.findall(f"{{{SVG}}}rect")[1:]:
                 animation = side.find(f"{{{SVG}}}animate")
                 initial = float(animation.attrib["values"].split(";")[0])
                 height = f"{initial + rise / 1.15:.2f}"
                 side.set("height", height)
-                animation.set("values", f"{initial:g};{height}")
+                pulse(animation, f"{initial + rise * 0.4 / 1.15:.3f}", height)
         u, v = (x + ground_y / slope) / 2, (x - ground_y / slope) / 2
         footprints.append((u, v))
     if not footprints:
@@ -63,7 +69,6 @@ def style_calendar(path):
     u0, v0 = min(us), min(vs)
     week_count = round((max(us) - u0) / pitch) + 1
     day_count = round((max(vs) - v0) / pitch) + 1
-    occupied = {(round((u-u0)/pitch), round((v-v0)/pitch)) for u, v in footprints}
 
     def diamond(u, v, width, depth):
         corners = ((u, v), (u+width, v), (u+width, v+depth), (u, v+depth))
@@ -77,15 +82,15 @@ def style_calendar(path):
     tiles.insert(0, surround)
     ET.SubElement(surround, f"{{{SVG}}}polygon", id="calendar-base", fill="#65736c",
                   points=diamond(u0-pitch-2, v0-pitch-2,
-                                 (week_count+2)*pitch+2, (day_count+2)*pitch+2))
-    # Neutral padding also fills the unused slots of the partial final week.
-    for col in range(-1, week_count + 1):
-        for row in range(-1, day_count + 1):
-            if (col, row) not in occupied:
-                ET.SubElement(surround, f"{{{SVG}}}polygon", fill="#929e97",
-                              points=diamond(u0+col*pitch, v0+row*pitch, face, face))
-    tiles.set("transform", "translate(48 16) scale(0.92)")
-    tree.write(path, encoding="utf-8")
+                                 (week_count+3)*pitch+2, (day_count+3)*pitch+2))
+    # Draw the full grid underneath the columns, including the partial week
+    # and a two-tile apron past the latest week and the raised back edge.
+    for col in range(-1, week_count + 2):
+        for row in range(-1, day_count + 2):
+            ET.SubElement(surround, f"{{{SVG}}}polygon", fill=PALETTE[0][0],
+                          points=diamond(u0+col*pitch, v0+row*pitch, face, face))
+    tiles.set("transform", "translate(50 18) scale(0.89)")
+    tree.write(Path("assets/contribution-calendar-animated.svg"), encoding="utf-8")
 
 
 if __name__ == "__main__":
