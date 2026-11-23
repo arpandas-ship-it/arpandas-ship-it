@@ -34,7 +34,7 @@ Hi, I’m **Arpan Das**, a Computer Science and Engineering student at **Adamas 
 
 ## ~/ contribution calendar
 
-![Arpan’s GitHub contributions in 3D](./profile-3d-contrib/profile-night-green.svg)
+![Arpan’s GitHub contributions in 3D](./assets/contribution-calendar-animated.svg)
 
 ## ~/ the numbers
 
